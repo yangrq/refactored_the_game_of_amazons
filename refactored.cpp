@@ -376,16 +376,16 @@ namespace yrq {
     using distance_matrix_group = array<distance_matrix, 4>;
   public:
     evaluator(const board& bd, const player& pl) : _bd(bd), _pl(pl) {
-      for (auto& dmg : dm_1)
+      for (auto& dmg : _dm_1)
         for (auto& dm : dmg)
           memset(dm, (uint8_t)(-1), 64);
-      for (auto& dmg : dm_2)
+      for (auto& dmg : _dm_2)
         for (auto& dm : dmg)
           memset(dm, (uint8_t)(-1), 64);
-      memset(merged_dm_1[0], (uint8_t)(-1), 64);
-      memset(merged_dm_1[1], (uint8_t)(-1), 64);
-      memset(merged_dm_2[0], (uint8_t)(-1), 64);
-      memset(merged_dm_2[1], (uint8_t)(-1), 64);
+      memset(_merged_dm_1[0], (uint8_t)(-1), 64);
+      memset(_merged_dm_1[1], (uint8_t)(-1), 64);
+      memset(_merged_dm_2[0], (uint8_t)(-1), 64);
+      memset(_merged_dm_2[1], (uint8_t)(-1), 64);
     }
     double evaluate() {
       double r = 0;
@@ -394,8 +394,9 @@ namespace yrq {
       double t = _territory_ingredient();
       double m = _mobility_ingredient();
       double d = _distribution_ingredient();
-      r = t + m + d;
-      append_log("t m d r:" + to_string(t) + " " + to_string(m) + " " + to_string(d) + " " + to_string(r), true);
+      double g = _guard_ingredient();
+      r = t + m + d + g;
+      append_log("t m d r g:" + to_string(t) + " " + to_string(m) + " " + to_string(d) + " " + to_string(r) + " " + to_string(g), true);
       return r;
     }
     void _output_board() {
@@ -403,28 +404,28 @@ namespace yrq {
       string str = "+----------DM1S----------+\n";
       for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j)
-          str += to_string(merged_dm_1[0][j][i]) + std::string(4 - to_string(merged_dm_1[0][j][i]).size(), ' ');
+          str += to_string(_merged_dm_1[0][j][i]) + string(4 - to_string(_merged_dm_1[0][j][i]).size(), ' ');
         str += "\n";
       }
       append_log(str);
       str = "+----------DM1O----------+\n";
       for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j)
-          str += to_string(merged_dm_1[1][j][i]) + std::string(4 - to_string(merged_dm_1[1][j][i]).size(), ' ');
+          str += to_string(_merged_dm_1[1][j][i]) + string(4 - to_string(_merged_dm_1[1][j][i]).size(), ' ');
         str += "\n";
       }
       append_log(str);
       str = "+----------DM2S----------+\n";
       for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j)
-          str += to_string(merged_dm_2[0][j][i]) + std::string(4 - to_string(merged_dm_2[0][j][i]).size(), ' ');
+          str += to_string(_merged_dm_2[0][j][i]) + string(4 - to_string(_merged_dm_2[0][j][i]).size(), ' ');
         str += "\n";
       }
       append_log(str);
       str = "+----------DM2O----------+\n";
       for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j)
-          str += to_string(merged_dm_2[1][j][i]) + std::string(4 - to_string(merged_dm_2[1][j][i]).size(), ' ');
+          str += to_string(_merged_dm_2[1][j][i]) + string(4 - to_string(_merged_dm_2[1][j][i]).size(), ' ');
         str += "\n";
       }
       append_log(str);
@@ -434,21 +435,21 @@ namespace yrq {
     void _generate_distance_matrix() {
       int idx = 0;
       for (auto& m : _pl.self())
-        _single_queen_min_moves(m, dm_1[0][idx++]);
+        _single_queen_min_moves(m, _dm_1[0][idx++]);
       idx = 0;
       for (auto& m : _pl.opponent())
-        _single_queen_min_moves(m, dm_1[1][idx++]);
+        _single_queen_min_moves(m, _dm_1[1][idx++]);
       idx = 0;
       for (auto& m : _pl.self())
-        _single_king_min_moves(m, dm_2[0][idx++]);
+        _single_king_min_moves(m, _dm_2[0][idx++]);
       idx = 0;
       for (auto& m : _pl.opponent())
-        _single_king_min_moves(m, dm_2[1][idx++]);
+        _single_king_min_moves(m, _dm_2[1][idx++]);
 
-      _merge_distance_matrix(merged_dm_1[0], dm_1[0]);
-      _merge_distance_matrix(merged_dm_1[1], dm_1[1]);
-      _merge_distance_matrix(merged_dm_2[0], dm_2[0]);
-      _merge_distance_matrix(merged_dm_2[1], dm_2[1]);
+      _merge_distance_matrix(_merged_dm_1[0], _dm_1[0]);
+      _merge_distance_matrix(_merged_dm_1[1], _dm_1[1]);
+      _merge_distance_matrix(_merged_dm_2[0], _dm_2[0]);
+      _merge_distance_matrix(_merged_dm_2[1], _dm_2[1]);
     }
     double _territory_determine_delta(uint8_t m, uint8_t n) {
       if (m == 255 && n == 255) return 0;
@@ -469,9 +470,9 @@ namespace yrq {
       for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j) {
           if (!_bd(i, j).is_empty()) continue;
-          t1 += _territory_determine_delta(merged_dm_1[0][i][j], merged_dm_1[1][i][j]);
-          c1 += pow(2.0, -merged_dm_1[0][i][j]) - pow(2.0, -merged_dm_1[1][i][j]);
-          w += pow(2.0, -abs(merged_dm_1[0][i][j] - merged_dm_1[1][i][j]));
+          t1 += _territory_determine_delta(_merged_dm_1[0][i][j], _merged_dm_1[1][i][j]);
+          c1 += pow(2.0, -_merged_dm_1[0][i][j]) - pow(2.0, -_merged_dm_1[1][i][j]);
+          w += pow(2.0, -abs(_merged_dm_1[0][i][j] - _merged_dm_1[1][i][j]));
         }
       c1 *= 2;
       this->w = w;
@@ -482,8 +483,8 @@ namespace yrq {
       for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j) {
           if (!_bd(i, j).is_empty()) continue;
-          t2 += _territory_determine_delta(merged_dm_2[0][i][j], merged_dm_2[1][i][j]);
-          c2 += min(1.0, max(-1.0, (double)(merged_dm_2[1][i][j] - merged_dm_2[0][i][j]) / 6.0));
+          t2 += _territory_determine_delta(_merged_dm_2[0][i][j], _merged_dm_2[1][i][j]);
+          c2 += min(1.0, max(-1.0, (double)(_merged_dm_2[1][i][j] - _merged_dm_2[0][i][j]) / 6.0));
         }
       return { t2,c2 };
     }
@@ -640,8 +641,8 @@ namespace yrq {
       double a = 0.0;
       for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j)
-          if (merged_dm_1[1 - player_idx][i][j] != 255 && dm_1[player_idx][amazon_idx][i][j] <= 1)
-            a += pow(2.0, -dm_2[player_idx][amazon_idx][i][j] + 1) * _empty_neighbor_num(i, j);
+          if (_merged_dm_1[1 - player_idx][i][j] != 255 && _dm_1[player_idx][amazon_idx][i][j] <= 1)
+            a += pow(2.0, -_dm_2[player_idx][amazon_idx][i][j] + 1) * _empty_neighbor_num(i, j);
       return a;
     }
     double _territory_ingredient() {
@@ -675,7 +676,6 @@ namespace yrq {
       d2 = sqrt(d2 / 10.0);
       return w / 20.0 * (d1 - d2);
     }
-
     double _mobility_ingredient() {
       double m1 = 0, m2 = 0;
       auto f_w_m1 = [this](double m) {return (w < 5 ? 5 : w) * (50.0 - m) / 400.0; };
@@ -686,14 +686,63 @@ namespace yrq {
         m2 += f_w_m2(_amazon_mobility(1, (size_t)i));
       return m2 - m1;
     }
+    double _guard_ingredient() {
+      auto _flat_dm_1 = [this](size_t idx) {return _dm_1[idx / 4][idx % 4]; };
+      auto _self_dm_1 = [this](size_t idx) {return _dm_1[0][idx]; };
+      auto _opponent_dm_1 = [this](size_t idx) {return _dm_1[1][idx]; };
+      auto _only_one_satisfy = [this](function<bool(size_t)> condition, size_t upper_bound) {
+        for (int i = 0; i < upper_bound; ++i)
+          if (condition(i)) {
+            bool satisfy = true;
+            for (int j = 0; j < upper_bound; ++j)
+              if (i == j) continue;
+              else if (condition(j)) goto end;
+            return make_tuple(true, i);
+          }
+      end:
+        return make_tuple(false, 0);
+      };
+      auto is_reachable = [this](uint8_t x, uint8_t y, function<uint8_t(*(size_t))[8]> dm_getter) {
+        return [x, y, this, dm_getter](size_t piece_idx) { return dm_getter(piece_idx)[x][y] != 255; };
+      };
+      auto one_step = [this](uint8_t x, uint8_t y, function<uint8_t(*(size_t))[8]> dm_getter) {
+        return [x, y, this, dm_getter](size_t piece_idx) { return dm_getter(piece_idx)[x][y] == 1; };
+      };
+
+      array<array<size_t, 4>, 2> exclusive_access_num = { 0 };
+      array<array<size_t, 4>, 2> common_access_num = { 0 };
+
+      for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 8; ++j) {
+          auto [found, result] = _only_one_satisfy(is_reachable(i, j, _flat_dm_1), 8);
+          if (found) ++exclusive_access_num[result / 4][result % 4];
+        }
+      for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 8; ++j) {
+          auto [found, result] = _only_one_satisfy(one_step(i, j, _self_dm_1), 4);
+          if (found) if (_merged_dm_1[1][i][j] == 1)  ++common_access_num[0][result];
+        }
+      for (int i = 0; i < 8; ++i)
+        for (int j = 0; j < 8; ++j) {
+          auto [found, result] = _only_one_satisfy(one_step(i, j, _opponent_dm_1), 4);
+          if (found) if (_merged_dm_1[0][i][j] == 1)  ++common_access_num[1][result];
+        }
+      double sum = 0;
+      for (int i = 0; i < 4; ++i) {
+        sum += min((double)exclusive_access_num[0][i], (double)common_access_num[0][i] / 2.0);
+        sum -= min((double)exclusive_access_num[1][i], (double)common_access_num[1][i] / 2.0);
+      }
+      return sum;
+    }
+
   private:
     const player& _pl;
     const board& _bd;
     double w = 0.0;
-    distance_matrix_group dm_1[2];
-    distance_matrix_group dm_2[2];
-    distance_matrix merged_dm_1[2];
-    distance_matrix merged_dm_2[2];
+    distance_matrix_group _dm_1[2];
+    distance_matrix_group _dm_2[2];
+    distance_matrix _merged_dm_1[2];
+    distance_matrix _merged_dm_2[2];
   };
 
   //ËÑË÷Æ÷
