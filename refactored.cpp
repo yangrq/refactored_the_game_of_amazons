@@ -63,6 +63,8 @@ namespace yrq {
 #endif
     }
   }
+
+  //·½¸ñ
   class teil {
   public:
     enum class type : char { empty, black, white, arrow };
@@ -82,6 +84,8 @@ namespace yrq {
   private:
     type _t;
   };
+
+  //ÒÆ¶¯¶¯×÷
   class move {
     tuple<int, int> _from, _to, _arrow;
   public:
@@ -112,6 +116,8 @@ namespace yrq {
     }
   private:
   };
+
+  //Íæ¼Ò
   class player {
   public:
     using single_player = tuple<int, int>[4];
@@ -189,6 +195,8 @@ namespace yrq {
     bool _is_black;
     single_player players[2] = { {{0,2},{2,0},{5,0},{7,2}},{{0,5},{2,7},{5,7},{7,5}} };
   };
+
+  //ÆåÅÌ
   class board {
     friend teil;
   public:
@@ -322,6 +330,8 @@ namespace yrq {
       teil::type::empty , teil::type::empty ,teil::type::black ,teil::type::empty ,teil::type::empty ,teil::type::white ,teil::type::empty ,teil::type::empty
     };
   };
+
+  //½»»¥Æ÷
   class interactor {
   public:
     interactor(board& bd) :_bd(bd) {}
@@ -354,11 +364,18 @@ namespace yrq {
     vector<move> _mvs;
     board& _bd;
   };
+
+  //ÆÀ¹À¼ÓÈ¨Æ÷
+  class evaluation_weight_function {
+  public:
+  };
+
+  //ÆÀ¹ÀÆ÷
   class evaluator {
     using distance_matrix = uint8_t[8][8];
     using distance_matrix_group = array<distance_matrix, 4>;
   public:
-    evaluator(const player& pl, const board& bd) :_pl(pl), _bd(bd) {
+    evaluator(const board& bd, const player& pl) : _bd(bd), _pl(pl) {
       for (auto& dmg : dm_1)
         for (auto& dm : dmg)
           memset(dm, (uint8_t)(-1), 64);
@@ -678,6 +695,8 @@ namespace yrq {
     distance_matrix merged_dm_1[2];
     distance_matrix merged_dm_2[2];
   };
+
+  //ËÑË÷Æ÷
   class greedy_searcher {
   public:
     greedy_searcher(board& bd, player& pl) : _bd(bd), _pl(pl) {}
@@ -690,10 +709,13 @@ namespace yrq {
           _bd.make_move(each_move);
           _bd._output_board();
           _pl.make_move(each_move);
-          evaluator ev(_pl, _bd);
+
+          evaluator ev(_bd, _pl);
           double evaluation = ev.evaluate();
+
           _bd.undo_move(each_move);
           _pl.undo_move(each_move);
+
           if (evaluation > current_evaluation) {
             current_evaluation = evaluation;
             mv = each_move;
