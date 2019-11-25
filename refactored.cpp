@@ -136,7 +136,7 @@ namespace yrq {
       return players[_is_black];
     }
     bool id() const { return !_is_black; }
-    void make_move(move mv) {
+    void make_move(const move& mv) {
       _check_move_valid(mv);
       for (int i = 0; i < 4; ++i) {
         if (self()[i] == mv.from())
@@ -145,7 +145,7 @@ namespace yrq {
           opponent()[i] = mv.to();
       }
     }
-    void undo_move(move mv) {
+    void undo_move(const move& mv) {
       _check_undo_move_valid(mv);
       for (int i = 0; i < 4; ++i) {
         if (self()[i] == mv.to())
@@ -154,7 +154,7 @@ namespace yrq {
           opponent()[i] = mv.from();
       }
     }
-    void make_moves(vector<move> mvs) {
+    void make_moves(const vector<move>& mvs) {
       for (const auto& mv : mvs)
         make_move(mv);
     }
@@ -251,7 +251,7 @@ namespace yrq {
       }
       append_log(str, true);
     }
-    void make_move(move mv) {
+    void make_move(const move& mv) {
       _check_move_valid(mv);
       auto t = _locate_teil(mv.from()).get_type();
       _locate_teil(mv.from()).set_empty();
@@ -259,7 +259,7 @@ namespace yrq {
       _locate_teil(mv.arrow()).set_arrow();
       _count_amazons();
     }
-    void undo_move(move mv) {
+    void undo_move(const move& mv) {
       _check_undo_move_valid(mv);
       auto t = _locate_teil(mv.to()).get_type();
       _locate_teil(mv.to()).set_empty();
@@ -267,7 +267,7 @@ namespace yrq {
       _locate_teil(mv.from()).set_type(t);
       _count_amazons();
     }
-    void make_moves(vector<move> mvs) {
+    void make_moves(const vector<move>& mvs) {
       for (const auto& mv : mvs) {
         make_move(mv);
       }
