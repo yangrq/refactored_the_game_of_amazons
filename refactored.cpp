@@ -690,10 +690,9 @@ namespace yrq {
       auto _flat_dm_1 = [this](size_t idx) {return _dm_1[idx / 4][idx % 4]; };
       auto _self_dm_1 = [this](size_t idx) {return _dm_1[0][idx]; };
       auto _opponent_dm_1 = [this](size_t idx) {return _dm_1[1][idx]; };
-      auto _only_one_satisfy = [this](function<bool(size_t)> condition, size_t upper_bound) {
+      auto _only_one_satisfy = [this](function<bool(size_t)> condition, int upper_bound) {
         for (int i = 0; i < upper_bound; ++i)
           if (condition(i)) {
-            bool satisfy = true;
             for (int j = 0; j < upper_bound; ++j)
               if (i == j) continue;
               else if (condition(j)) goto end;
@@ -736,8 +735,8 @@ namespace yrq {
     }
 
   private:
-    const player& _pl;
     const board& _bd;
+    const player& _pl;
     double w = 0.0;
     distance_matrix_group _dm_1[2];
     distance_matrix_group _dm_2[2];
