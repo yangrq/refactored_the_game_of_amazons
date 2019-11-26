@@ -342,3 +342,4 @@ healthchecksdb
 # Binary
 *.exe
 *.out
+/turn_w.txt

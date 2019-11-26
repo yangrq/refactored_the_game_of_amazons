@@ -368,6 +368,39 @@ namespace yrq {
   //ÆÀ¹À¼ÓÈ¨Æ÷
   class evaluation_weight_function {
   public:
+    static double f_w_t1(int w, double v) {
+      static double w_t1[48]{
+#define W_T1
+#include "weight.txt"
+#undef W_T1
+      };
+      return v * w_t1[w];
+    }
+
+    static double f_w_t2(int w, double v) {
+      static double w_t2[48] = {
+#define W_T2
+#include "weight.txt"
+#undef W_T2
+      };
+      return v * w_t2[w];
+    }
+    static double f_w_m(int w, double v) {
+      double w_m[48] = {
+#define W_M
+#include "weight.txt"
+#undef W_M
+      };
+      return v * w_m[w];
+    }
+    static double f_w_c(int w, double v) {
+      double w_c[48] = {
+#define W_C
+#include "weight.txt"
+#undef W_C
+      };
+      return v * w_c[w];
+    }
   };
 
   //ÆÀ¹ÀÆ÷
@@ -396,7 +429,7 @@ namespace yrq {
       double d = _distribution_ingredient();
       double g = _guard_ingredient();
       r = t + m + d + g;
-      append_log("t m d r g:" + to_string(t) + " " + to_string(m) + " " + to_string(d) + " " + to_string(r) + " " + to_string(g), true);
+      append_log("w t m d r g: " + to_string(w) + " " + to_string(t) + " " + to_string(m) + " " + to_string(d) + " " + to_string(r) + " " + to_string(g), true);
       return r;
     }
     void _output_board() {
@@ -504,6 +537,8 @@ namespace yrq {
       vector<tuple<int, int>> open;
       bitset<64> closed;
 
+      open.reserve(64);
+
       auto eigen_value = [](tuple<int, int> pair) {
         auto [x, y] = pair;
         return (uint8_t)x << 3 | (uint8_t)y;
@@ -584,6 +619,8 @@ namespace yrq {
       vector<tuple<int, int>> open;
       bitset<64> closed;
 
+      open.reserve(32);
+
       auto eigen_value = [](tuple<int, int> pair) {
         auto [x, y] = pair;
         return (uint8_t)x << 3 | (uint8_t)y;
@@ -648,15 +685,11 @@ namespace yrq {
     double _territory_ingredient() {
       auto [t1, c1, w] = _t1_c1_w();
       auto [t2, c2] = _t2_c2();
-      // f(t1,w) = [ 0.75 * 1.1 ^ (-w) + 0.25 ] * t1
-      auto f_w_t1 = [=](double v) { return (0.75 * pow(1.1, -w) + 0.25) * v; };
-      // f(t2,w) = [ 0.08 * sqrt( max { w-1 , 0 } ) ] * t2
-      auto f_w_t2 = [=](double v) { return (0.08 * sqrt(w - 1 > 0 ? w - 1 : 0))* v; };
-      // f(c1,w) = [ 1 - f_t1(w) - f_t2(w) ] * [ 0.6 * 1.1 ^ (-w) + 0.4 ] * c1
-      auto f_w_c1 = [=](double v) { return (1 - 0.75 * pow(1.1, -w) - 0.25 - 0.08 * sqrt(w - 1 > 0 ? w - 1 : 0))* (0.4 + 0.6 * pow(1.1, -w))* v; };
-      // f(c2,w) = [ 1 - f_t1(w) - f_t2(w) ] * [ 0.6 - 0.6 * 1.1 ^ (-w) ] * c2
-      auto f_w_c2 = [=](double v) { return (1 - 0.75 * pow(1.1, -w) - 0.25 - 0.08 * sqrt(w - 1 > 0 ? w - 1 : 0))* (1 - (0.4 + 0.6 * pow(1.1, -w)))* v; };
-      return f_w_t1(t1) + f_w_c1(c1) + f_w_t2(t2) + f_w_c2(c2);
+      return 1.3 * (
+        evaluation_weight_function::f_w_t1((int)w, t1) +
+        evaluation_weight_function::f_w_t2((int)w, t2) +
+        evaluation_weight_function::f_w_c((int)w, c1) +
+        evaluation_weight_function::f_w_c((int)w, c2));
     }
     double _distribution_ingredient() {
       double d1 = 0, d2 = 0;
@@ -678,13 +711,11 @@ namespace yrq {
     }
     double _mobility_ingredient() {
       double m1 = 0, m2 = 0;
-      auto f_w_m1 = [this](double m) {return (w < 5 ? 5 : w) * (50.0 - m) / 400.0; };
-      auto f_w_m2 = [this, &f_w_m1](double m) {return f_w_m1(m); };
       for (int i = 0; i < 4; ++i)
-        m1 += f_w_m1(_amazon_mobility(0, (size_t)i));
+        m1 += evaluation_weight_function::f_w_m((int)w, _amazon_mobility(0, (size_t)i));
       for (int i = 0; i < 4; ++i)
-        m2 += f_w_m2(_amazon_mobility(1, (size_t)i));
-      return m2 - m1;
+        m2 += evaluation_weight_function::f_w_m((int)w, _amazon_mobility(1, (size_t)i));
+      return 1.2 * (m2 - m1);
     }
     double _guard_ingredient() {
       auto _flat_dm_1 = [this](size_t idx) {return _dm_1[idx / 4][idx % 4]; };
