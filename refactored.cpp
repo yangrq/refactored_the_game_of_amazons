@@ -341,7 +341,7 @@ namespace yrq {
       auto [ax, ay] = mv.arrow();
       cout << fx << ' ' << fy << ' ' << tx << ' ' << ty << ' ' << ax << ' ' << ay;
     }
-    bool input() {
+    tuple<bool, size_t> input() {
       int turn, from_x, from_y, to_x, to_y, arrow_x, arrow_y;
       bool is_black = false;
       cin >> turn;
@@ -357,7 +357,7 @@ namespace yrq {
         }
       }
       _bd.make_moves(_mvs);
-      return is_black;
+      return { is_black,turn };
     }
     const vector<move>& history_moves() const { return _mvs; }
   private:
@@ -367,39 +367,40 @@ namespace yrq {
 
   //ÆÀ¹À¼ÓÈ¨Æ÷
   class evaluation_weight_function {
+    double w_t1[28] = { 0 };
+    double w_t2[28] = { 0 };
+    double w_c[28] = { 0 };
+    double w_m[28] = { 0 };
   public:
-    static double f_w_t1(int w, double v) {
-      static double w_t1[48]{
-#define W_T1
-#include "weight.txt"
-#undef W_T1
-      };
+    evaluation_weight_function() {
+#ifdef _BOTZONE_ONLINE
+      ifstream ifs("./data/weight.txt");
+#else
+      ifstream ifs("weight.txt");
+#endif // _BOTZONE_ONLINE
+      for (int i = 0; i < 28; ++i)
+        ifs >> w_t1[i];
+      for (int i = 0; i < 28; ++i)
+        ifs >> w_t2[i];
+      for (int i = 0; i < 28; ++i)
+        ifs >> w_c[i];
+      for (int i = 0; i < 28; ++i)
+        ifs >> w_m[i];
+      ifs.close();
+    }
+    double f_w_t1(size_t w, double v) const {
       return v * w_t1[w];
     }
 
-    static double f_w_t2(int w, double v) {
-      static double w_t2[48] = {
-#define W_T2
-#include "weight.txt"
-#undef W_T2
-      };
+    double f_w_t2(size_t w, double v) const {
       return v * w_t2[w];
     }
-    static double f_w_m(int w, double v) {
-      double w_m[48] = {
-#define W_M
-#include "weight.txt"
-#undef W_M
-      };
-      return v * w_m[w];
-    }
-    static double f_w_c(int w, double v) {
-      double w_c[48] = {
-#define W_C
-#include "weight.txt"
-#undef W_C
-      };
+    double f_w_c(size_t w, double v) const {
+
       return v * w_c[w];
+    }
+    double f_w_m(size_t w, double v) const {
+      return v * w_m[w];
     }
   };
 
@@ -408,7 +409,7 @@ namespace yrq {
     using distance_matrix = uint8_t[8][8];
     using distance_matrix_group = array<distance_matrix, 4>;
   public:
-    evaluator(const board& bd, const player& pl) : _bd(bd), _pl(pl) {
+    evaluator(const board& bd, const player& pl, size_t turn, const evaluation_weight_function& ewf) : _bd(bd), _pl(pl), _turn(turn), _ewf(ewf) {
       for (auto& dmg : _dm_1)
         for (auto& dm : dmg)
           memset(dm, (uint8_t)(-1), 64);
@@ -429,7 +430,7 @@ namespace yrq {
       double d = _distribution_ingredient();
       double g = _guard_ingredient();
       r = t + m + d + g;
-      append_log("w t m d r g: " + to_string(w) + " " + to_string(t) + " " + to_string(m) + " " + to_string(d) + " " + to_string(r) + " " + to_string(g), true);
+      append_log("t m d g r: " + to_string(t) + " " + to_string(m) + " " + to_string(d) + " " + to_string(g) + " " + to_string(r), true);
       return r;
     }
     void _output_board() {
@@ -498,18 +499,16 @@ namespace yrq {
           out[i][j] = min(min1, min2);
         }
     }
-    tuple<double, double, double> _t1_c1_w() {
-      double t1 = 0, c1 = 0, w = 0;
+    tuple<double, double> _t1_c1() {
+      double t1 = 0, c1 = 0;
       for (int i = 0; i < 8; ++i)
         for (int j = 0; j < 8; ++j) {
           if (!_bd(i, j).is_empty()) continue;
           t1 += _territory_determine_delta(_merged_dm_1[0][i][j], _merged_dm_1[1][i][j]);
           c1 += pow(2.0, -_merged_dm_1[0][i][j]) - pow(2.0, -_merged_dm_1[1][i][j]);
-          w += pow(2.0, -abs(_merged_dm_1[0][i][j] - _merged_dm_1[1][i][j]));
         }
       c1 *= 2;
-      this->w = w;
-      return { t1, c1, w };
+      return { t1, c1 };
     }
     tuple<double, double>  _t2_c2() {
       double t2 = 0, c2 = 0;
@@ -683,13 +682,13 @@ namespace yrq {
       return a;
     }
     double _territory_ingredient() {
-      auto [t1, c1, w] = _t1_c1_w();
+      auto [t1, c1] = _t1_c1();
       auto [t2, c2] = _t2_c2();
-      return 1.3 * (
-        evaluation_weight_function::f_w_t1((int)w, t1) +
-        evaluation_weight_function::f_w_t2((int)w, t2) +
-        evaluation_weight_function::f_w_c((int)w, c1) +
-        evaluation_weight_function::f_w_c((int)w, c2));
+      return
+        _ewf.f_w_t1(_turn, t1) +
+        _ewf.f_w_t2(_turn, t2) +
+        _ewf.f_w_c(_turn, c1) +
+        _ewf.f_w_c(_turn, c2);
     }
     double _distribution_ingredient() {
       double d1 = 0, d2 = 0;
@@ -707,15 +706,15 @@ namespace yrq {
         }
       d1 = sqrt(d1 / 10.0);
       d2 = sqrt(d2 / 10.0);
-      return w / 20.0 * (d1 - d2);
+      return (1 - _turn / 28) * (d1 - d2) * 0.6;
     }
     double _mobility_ingredient() {
       double m1 = 0, m2 = 0;
       for (int i = 0; i < 4; ++i)
-        m1 += evaluation_weight_function::f_w_m((int)w, _amazon_mobility(0, (size_t)i));
+        m1 += _amazon_mobility(0, (size_t)i);
       for (int i = 0; i < 4; ++i)
-        m2 += evaluation_weight_function::f_w_m((int)w, _amazon_mobility(1, (size_t)i));
-      return 1.2 * (m2 - m1);
+        m2 += _amazon_mobility(1, (size_t)i);
+      return _ewf.f_w_m(_turn, m1 - m2);
     }
     double _guard_ingredient() {
       auto _flat_dm_1 = [this](size_t idx) {return _dm_1[idx / 4][idx % 4]; };
@@ -762,13 +761,14 @@ namespace yrq {
         sum += min((double)exclusive_access_num[0][i], (double)common_access_num[0][i] / 2.0);
         sum -= min((double)exclusive_access_num[1][i], (double)common_access_num[1][i] / 2.0);
       }
-      return sum;
+      return sum / 5.0;
     }
 
   private:
     const board& _bd;
     const player& _pl;
-    double w = 0.0;
+    size_t _turn;
+    const evaluation_weight_function& _ewf;
     distance_matrix_group _dm_1[2];
     distance_matrix_group _dm_2[2];
     distance_matrix _merged_dm_1[2];
@@ -778,9 +778,10 @@ namespace yrq {
   //ËÑË÷Æ÷
   class greedy_searcher {
   public:
-    greedy_searcher(board& bd, player& pl) : _bd(bd), _pl(pl) {}
+    greedy_searcher(board& bd, player& pl, size_t turn) : _bd(bd), _pl(pl), _turn(turn) {}
     move search_and_select() {
       move mv;
+      evaluation_weight_function ewf;
       double current_evaluation = -INFINITY;
       for (const auto& amazon : _pl.self()) {
         auto res = _possible_moves(amazon);
@@ -789,7 +790,7 @@ namespace yrq {
           _bd._output_board();
           _pl.make_move(each_move);
 
-          evaluator ev(_bd, _pl);
+          evaluator ev(_bd, _pl, _turn, ewf);
           double evaluation = ev.evaluate();
 
           _bd.undo_move(each_move);
@@ -884,6 +885,7 @@ namespace yrq {
     }
     board& _bd;
     player& _pl;
+    size_t _turn;
   };
 }
 
@@ -893,8 +895,9 @@ int main() {
   ios::sync_with_stdio(false);
   board bd;
   interactor ita(bd);
-  player pl(ita.input());
+  auto [is_black, turn] = ita.input();
+  player pl(is_black);
   pl.make_moves(ita.history_moves());
-  greedy_searcher sch(bd, pl);
+  greedy_searcher sch(bd, pl, turn);
   ita.output(sch.search_and_select());
 }
