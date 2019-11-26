@@ -396,7 +396,7 @@ namespace yrq {
       double d = _distribution_ingredient();
       double g = _guard_ingredient();
       r = t + m + d + g;
-      append_log("t m d r g:" + to_string(t) + " " + to_string(m) + " " + to_string(d) + " " + to_string(r) + " " + to_string(g), true);
+      append_log("w t m d r g: " + to_string(w) + " " + to_string(t) + " " + to_string(m) + " " + to_string(d) + " " + to_string(r) + " " + to_string(g), true);
       return r;
     }
     void _output_board() {
@@ -504,6 +504,8 @@ namespace yrq {
       vector<tuple<int, int>> open;
       bitset<64> closed;
 
+      open.reserve(64);
+
       auto eigen_value = [](tuple<int, int> pair) {
         auto [x, y] = pair;
         return (uint8_t)x << 3 | (uint8_t)y;
@@ -583,6 +585,8 @@ namespace yrq {
     void _single_king_min_moves(tuple<int, int> from, distance_matrix& distance) {
       vector<tuple<int, int>> open;
       bitset<64> closed;
+
+      open.reserve(32);
 
       auto eigen_value = [](tuple<int, int> pair) {
         auto [x, y] = pair;
